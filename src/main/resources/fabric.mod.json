@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "wynnmarket",
+	"version": "${version}",
+	"name": "WynnMarket",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [
+		"Pranit Vaikuntam"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/initialmod/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"net.pranit.wynnmarket.WynnMarket"
+		],
+		"fabric-datagen": [
+			"net.pranit.wynnmarket.WynnMarketDataGenerator"
+		]
+	},
+	"mixins": [
+		"initialmod.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=${loader_version}",
+		"minecraft": "~${minecraft_version}",
+		"java": ">=21",
+		"fabric-api": "*",
+		"wynntils": ">=${wynntils_version}"
+	}
+}
