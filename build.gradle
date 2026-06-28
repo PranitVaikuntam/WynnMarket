@@ -16,6 +16,8 @@ repositories {
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
 	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
 	// for more information about repositories.
+	mavenCentral()
+	mavenLocal()
 	maven { url = "https://api.modrinth.com/maven" }
 }
 
@@ -34,8 +36,17 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
+	modImplementation "maven.modrinth:wynnventory:v${project.wynnventory_version}-fabric"
 	modImplementation "maven.modrinth:wynntils:v${project.wynntils_version}-fabric"
-	
+
+	implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2"
+	implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2"
+	include "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2"
+	include "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2"
+
+	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 processResources {
@@ -43,6 +54,7 @@ processResources {
 		version: project.version,
 		loader_version: project.loader_version,
 		minecraft_version: project.minecraft_version,
+		wynnventory_version: project.wynnventory_version,
 		wynntils_version: project.wynntils_version
 	]
 
@@ -91,4 +103,8 @@ publishing {
 		// The repositories here will be used for publishing your artifact, not for
 		// retrieving dependencies.
 	}
+}
+
+test {
+	useJUnitPlatform()
 }

@@ -1,8 +1,9 @@
 package net.pranit.wynnmarket;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.pranit.wynnmarket.events.CallbackManager;
-
+import net.pranit.wynnmarket.service.AuctionScannerManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,5 +24,10 @@ public class WynnMarket implements ModInitializer {
 		CallbackManager.INSTANCE.initialize();
 
 		LOGGER.info("WynnMarket initialized.");
+
+		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			AuctionScannerManager.INSTANCE.tick();
+		});
+
 	}
 }

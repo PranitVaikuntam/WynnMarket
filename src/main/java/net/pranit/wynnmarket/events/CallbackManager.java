@@ -21,9 +21,7 @@ public enum CallbackManager {
 	private void registerCallbacks() {
 		TradeMarketOpenedCallback.EVENT.register(() -> {
 			WynnMarket.LOGGER.info("Trade Market screen initialized.");
-			AuctionScanner.INSTANCE.scheduleScan();
+//			AuctionScanner.INSTANCE.scheduleScan();
 		});
-
-		ClientTickEvents.END_CLIENT_TICK.register(AuctionScanner.INSTANCE::tick);
 	}
 }

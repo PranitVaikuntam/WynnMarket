@@ -3,10 +3,8 @@
 	"package": "net.pranit.wynnmarket.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ExampleMixin"
 	],
 	"client": [
-		"HandledScreenMixin",
 		"ScreenHandlerMixin"
 	],
 	"injectors": {
