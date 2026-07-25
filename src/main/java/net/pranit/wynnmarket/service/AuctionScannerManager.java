@@ -1,5 +1,6 @@
 package net.pranit.wynnmarket.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -8,6 +9,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.Hand;
 import net.pranit.wynnmarket.WynnMarket;
 
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -20,17 +22,15 @@ public enum AuctionScannerManager {
     private final int TICKS_UNTIL_CLICK = 2;
 
     private int tickScanCounter = -1;
-    private int tickMoveCounter = (new Random().nextInt(5 * 60 * 20)) + (5 * 60 * 20);;
+    private int tickMoveCounter = (new Random().nextInt(3 * 60 * 20)) + (3 * 60 * 20);;
     private int tickClickCounter =  TICKS_UNTIL_CLICK;
 
     private AuctionScanner auctionScanner = new AuctionScanner();
     private boolean moveRunning = false;
 
+    private AuctionScannerManager() {}
 
-
-    private AuctionScannerManager() { }
-
-	/**
+    /**
 	 * This function is registered to be called on every tick in WynnMarket.java.
      * By definition, a move can only happen after a scan has just run. There is no possible way for a scan to interrupt a run
 	 * However, we must stop the scan code from early returning from tick once a run has been scheduled
@@ -69,13 +69,10 @@ public enum AuctionScannerManager {
 	}
 
     /**
-     * Checks to see if the current screen that is open is a
+     * Scans page and sends it to AWS
      */
     private void scan() {
         WynnMarket.LOGGER.info("Scanning Current Auction Page");
-        ObjectMapper mapper = new ObjectMapper()
-            .registerModule(new Jdk8Module())
-            .registerModule(new JavaTimeModule());
         TrademarketListing[] newListings = INSTANCE.auctionScanner.getNewListings();
     }
 
