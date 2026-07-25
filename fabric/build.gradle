@@ -6,7 +6,10 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
-apply from: 'secrets.gradle'
+def secretsFile = file('secrets.gradle')
+if (secretsFile.exists()) {
+	apply from: secretsFile
+}
 
 base {
 	archivesName = project.archives_base_name
@@ -39,8 +42,8 @@ repositories {
 		name = "GitHubPackages"
 		url = "https://maven.pkg.github.com/axieum/authme"
 		credentials {
-			username = project.github_username
-			password = project.github_pat
+			username = findProperty("github_username") ?: System.getenv("GITHUB_USERNAME")
+			password = findProperty("github_pat") ?: System.getenv("GITHUB_PAT")
 		}
 	}
 }
