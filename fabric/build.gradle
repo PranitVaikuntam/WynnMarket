@@ -37,7 +37,10 @@ repositories {
 		name = 'Team Resourceful'
 		url = 'https://maven.teamresourceful.com/repository/maven-public/'
 	}
-	maven { name = 'Sponge'; url = 'https://repo.spongepowered.org/repository/maven-public' }
+	maven {
+		name = 'Sponge'
+		url = 'https://repo.spongepowered.org/repository/maven-public'
+	}
 	maven {
 		name = "GitHubPackages"
 		url = "https://maven.pkg.github.com/axieum/authme"

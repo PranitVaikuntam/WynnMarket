@@ -42,24 +42,6 @@ public class PageChangeDetector<P, T> {
     }
 
     /**
-     * Convert a page of listings to a hashmap of listings
-     * @param page The page of listings
-     * @return a hashmap of listings
-     */
-    private Map<T, ArrayList<Integer>> populateMap(T[] page) {
-        Map<T, ArrayList<Integer>> pageMap = new HashMap<>();
-
-        for (int slotIndex = 0; slotIndex < PAGE_SIZE; slotIndex++) {
-            T listing = page[slotIndex];
-            if (listing == null) continue;
-
-            pageMap.computeIfAbsent(listing, key -> new ArrayList<>()).add(slotIndex);
-        }
-
-        return pageMap;
-    }
-
-    /**
      * Find the listings that have been added to the auction house upon page update
      * @return a list of the listings that are new to the auction house
      */
@@ -149,5 +131,23 @@ public class PageChangeDetector<P, T> {
 
         //If we have got to this point, then numRel >= r, so the listing was present in the first page
         return true;
+    }
+
+    /**
+     * Convert a page of listings to a hashmap of listings
+     * @param page The page of listings
+     * @return a hashmap of listings
+     */
+    private Map<T, ArrayList<Integer>> populateMap(T[] page) {
+        Map<T, ArrayList<Integer>> pageMap = new HashMap<>();
+
+        for (int slotIndex = 0; slotIndex < PAGE_SIZE; slotIndex++) {
+            T listing = page[slotIndex];
+            if (listing == null) continue;
+
+            pageMap.computeIfAbsent(listing, key -> new ArrayList<>()).add(slotIndex);
+        }
+
+        return pageMap;
     }
 }
