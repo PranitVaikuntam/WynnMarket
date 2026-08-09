@@ -68,12 +68,20 @@ public enum AuctionScannerManager {
         }
 	}
 
+	/**
+	 * Schedule a scanning to happen in TICKS_UNTIL_SCAN ticks by setting TICKS_UNTIL_SCAN. Do not anything if a scan is already happening
+	 */
+	public void scheduleScan() {
+		tickScanCounter = TICKS_UNTIL_SCAN;
+	}
+
     /**
      * Scans page and sends it to AWS
      */
     private void scan() {
         WynnMarket.LOGGER.info("Scanning Current Auction Page");
-        TrademarketListing[] newListings = INSTANCE.auctionScanner.getNewListings();
+        TrademarketListing[] newListings = auctionScanner.getNewListings();
+        auctionScanner.printTradeMarketListings("currPage", newListings);
     }
 
     /**
@@ -98,11 +106,4 @@ public enum AuctionScannerManager {
             client.player.swingHand(Hand.MAIN_HAND);
         }
     }
-
-	/**
-	 * Schedule a scanning to happen in TICKS_UNTIL_SCAN ticks by setting TICKS_UNTIL_SCAN. Do not anything if a scan is already happening
-	 */
-	public void scheduleScan() {
-		tickScanCounter = TICKS_UNTIL_SCAN;
-	}
 }
