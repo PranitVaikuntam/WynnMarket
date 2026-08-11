@@ -8,6 +8,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.item.ItemStack;
 import net.pranit.wynnmarket.WynnMarket;
+import net.pranit.wynnmarket.exception.IncorrectScreenException;
 
 public class AuctionScanner {
 
@@ -17,16 +18,55 @@ public class AuctionScanner {
 	TrademarketListing[] currPage;
 
 	/**
+	 * Get new listings from the auction page
+	 * @return a list of the new listings or an empty list if there is nothing to return
+	 */
+	public TrademarketListing[] getNewListings() {
+		//On initialization, you must first start with a prevPage
+		if(!initialized) {
+			//Check if initialization failed
+			try {
+				prevPage = getPage();
+			} catch (IncorrectScreenException e) {
+				return new TrademarketListing[0];
+            }
+            initialized = true;
+			return new TrademarketListing[0];
+		}
+
+		//Update the current page
+		try {
+			currPage = getPage();
+		} catch (IncorrectScreenException e) {
+			return new TrademarketListing[0];
+		}
+
+		//Find the new listings
+		PageChangeDetector<ItemStack, TrademarketListing> auctionScanner = new PageChangeDetector<>(
+			NUM_ITEMS,
+			prevPage,
+			currPage,
+			TrademarketListing[]::new
+		);
+		TrademarketListing[] resultAuctionPageDiff = auctionScanner.findPageDiff();
+
+		//Update the prevPage to be the currPage
+		prevPage = currPage;
+
+		return resultAuctionPageDiff;
+	}
+
+	/**
 	 * Scan all the items on the current screen.
-	 * Returns null on failure
+	 * @throws IncorrectScreenException if the current screen is not an handled screen
 	 * @return a list of the items on the current screen
 	 */
-	private TrademarketListing[] getPage() {
+	private TrademarketListing[] getPage() throws IncorrectScreenException {
 		//Get screen
 		Screen currentScreen = MinecraftClient.getInstance().currentScreen;
 		if (!(currentScreen instanceof HandledScreen<?> handledScreen)) {
 			WynnMarket.LOGGER.warn("Tried to scan auction slots while no handled screen was open.");
-			return null;
+			throw new IncorrectScreenException("Tried to scan auction slots while no handled screen was open.");
 		}
 
 		//Get items
@@ -41,40 +81,6 @@ public class AuctionScanner {
 		}
 
 		return listings;
-	}
-
-	/**
-	 * Get new listings from the auction page
-	 * @return a list of the new listings or an empty list if there is nothing to return
-	 */
-	public TrademarketListing[] getNewListings() {
-		//On initialization, you must first start with a prevPage
-		if(!initialized) {
-			prevPage = getPage();
-			initialized = true;
-			return new TrademarketListing[0];
-		}
-
-		//Update the current page
-		currPage = getPage();
-		if(currPage == null) {
-			return new TrademarketListing[0];
-		}
-
-		//Find the new listings
-		PageChangeDetector<ItemStack, TrademarketListing> auctionScanner = new PageChangeDetector<>(
-			NUM_ITEMS,
-			prevPage,
-			currPage,
-			TrademarketListing[]::new
-		);
-		TrademarketListing[] resultAuctionPageDiff = auctionScanner.findPageDiff();
-		printTradeMarketListings("currPage", resultAuctionPageDiff);
-
-		//Update the prevPage to be the currPage
-		prevPage = currPage;
-
-		return resultAuctionPageDiff;
 	}
 
 	public void printTradeMarketListings(String label, TrademarketListing[] listings) {
