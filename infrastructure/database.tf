@@ -23,14 +23,6 @@ resource "aws_security_group" "rds" {
   description = "Allow PostgreSQL connections"
   vpc_id      = data.aws_vpc.default.id
 
-  ingress {
-    description = "PostgreSQL access"
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = [var.allowed_cidr]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -41,6 +33,18 @@ resource "aws_security_group" "rds" {
   tags = {
     Name = "wynnmarket-rds-sg"
   }
+}
+
+resource "aws_security_group_rule" "rds_from_data_ingestion_lambda" {
+  type = "ingress"
+
+  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = aws_security_group.data_ingestion_lambda.id
+
+  description = "PostgreSQL access from data ingestion Lambda"
+  from_port   = 5432
+  to_port     = 5432
+  protocol    = "tcp"
 }
 
 resource "aws_db_instance" "postgres" {
@@ -55,14 +59,14 @@ resource "aws_db_instance" "postgres" {
   storage_encrypted     = true
 
   db_name  = "wynnmarket"
-  username = var.db_username
-  password = var.db_password
+  username = var.database.username
+  password = var.database.password
   port     = 5432
 
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
-  publicly_accessible = true
+  publicly_accessible = false
   multi_az            = false
 
   backup_retention_period = 7
@@ -75,14 +79,4 @@ resource "aws_db_instance" "postgres" {
     Name        = "wynnmarket-postgres"
     Environment = "development"
   }
-}
-
-output "rds_endpoint" {
-  description = "RDS hostname"
-  value       = aws_db_instance.postgres.address
-}
-
-output "database_url" {
-  description = "PostgreSQL connection URL without the password"
-  value       = "postgresql://${var.db_username}@${aws_db_instance.postgres.address}:${aws_db_instance.postgres.port}/wynnmarket"
 }
