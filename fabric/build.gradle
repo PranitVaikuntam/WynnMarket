@@ -26,6 +26,7 @@ repositories {
 		url = uri("https://api.modrinth.com/maven")
 	}
 
+	//AuthMe
 	maven {
 		name = "TerraformersMC"
 		url = "https://maven.terraformersmc.com/"
@@ -63,13 +64,18 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
+	//Wynnventory
 	modImplementation "maven.modrinth:wynnventory:v${project.wynnventory_version}-fabric"
 	include "maven.modrinth:wynnventory:v${project.wynnventory_version}-fabric"
+
+	//Wynntils
 	modImplementation "maven.modrinth:wynntils:v${project.wynntils_version}-fabric"
 	include "maven.modrinth:wynntils:v${project.wynntils_version}-fabric"
 
+	//AuthMe
 	modImplementation "me.axieum.mcmod.authme:authme-fabric:${project.authme_version}"
 
+	//ObjectMapper
 	implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2"
 	include "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2"
 	implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2"

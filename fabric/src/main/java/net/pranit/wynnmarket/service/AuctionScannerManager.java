@@ -18,6 +18,10 @@ import java.util.Random;
 public enum AuctionScannerManager {
     INSTANCE;
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+        .registerModule(new Jdk8Module())
+        .registerModule(new JavaTimeModule());
+
     private final int TICKS_UNTIL_SCAN = 20;
     private final int TICKS_UNTIL_CLICK = 2;
 
@@ -27,6 +31,7 @@ public enum AuctionScannerManager {
 
     private AuctionScanner auctionScanner = new AuctionScanner();
     private boolean moveRunning = false;
+
 
     private AuctionScannerManager() {}
 
@@ -82,6 +87,11 @@ public enum AuctionScannerManager {
         WynnMarket.LOGGER.info("Scanning Current Auction Page");
         TrademarketListing[] newListings = auctionScanner.getNewListings();
         auctionScanner.printTradeMarketListings("currPage", newListings);
+        try {
+            WynnMarket.LOGGER.info(OBJECT_MAPPER.writeValueAsString(newListings));
+        } catch (JsonProcessingException e) {
+            WynnMarket.LOGGER.error("Unable to serialize listing to JSON");
+        }
     }
 
     /**
