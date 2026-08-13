@@ -51,4 +51,5 @@ __pycache__/
 infrastructure/lambdas/*/layer/python/
 
 # secrets
+.env
 fabric/secrets.gradle
