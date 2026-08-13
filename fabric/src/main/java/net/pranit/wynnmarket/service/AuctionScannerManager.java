@@ -1,15 +1,13 @@
 package net.pranit.wynnmarket.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.wynnventory.model.container.TrademarketContainer;
 import com.wynnventory.model.item.trademarket.TrademarketListing;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.util.Hand;
 import net.pranit.wynnmarket.WynnMarket;
 
-import java.util.List;
 import java.util.Random;
 
 /**
@@ -18,19 +16,16 @@ import java.util.Random;
 public enum AuctionScannerManager {
     INSTANCE;
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-        .registerModule(new Jdk8Module())
-        .registerModule(new JavaTimeModule());
-
     private final int TICKS_UNTIL_SCAN = 20;
-    private final int TICKS_UNTIL_CLICK = 2;
-
     private int tickScanCounter = -1;
-    private int tickMoveCounter = (new Random().nextInt(3 * 60 * 20)) + (3 * 60 * 20);;
+    private boolean scanLock = false;
+
+    private final int TICKS_UNTIL_CLICK = 100;
     private int tickClickCounter =  TICKS_UNTIL_CLICK;
 
+    private int tickResetCounter = (new Random().nextInt(2 * 60 * 20)) + (2 * 60 * 20);
+
     private AuctionScanner auctionScanner = new AuctionScanner();
-    private boolean moveRunning = false;
 
 
     private AuctionScannerManager() {}
@@ -41,56 +36,53 @@ public enum AuctionScannerManager {
 	 * However, we must stop the scan code from early returning from tick once a run has been scheduled
 	 */
 	public void tick() {
-        tickMoveCounter--; //Count down for move time
-
-        if (!moveRunning) {
-            //A scan has not been scheduled
-            if (tickScanCounter < 0) return;
-            //A scan has been scheduled
-            tickScanCounter--;
-            if (tickScanCounter > 0) return;
-            //A scan runs
-            tickScanCounter = -1;
-            scan();
+        //Wait some time after the click before doing anything
+        if (tickClickCounter > 0) {
+            tickClickCounter--;
+            return;
         }
 
-        //We have not moved in between 5 - 10 minutes and now need to move
-        if (tickMoveCounter < 0) {
-            WynnMarket.LOGGER.info("Moving to avoid AFK");
-            moveRunning = true;
-
-            //Stop AFK. Wait a couple ticks before clicking back in
-            pressEscape();
-            tickClickCounter--;
-            if (tickClickCounter > 0) return;
+        //Click until get to auction screen
+        Screen currentScreen = MinecraftClient.getInstance().currentScreen;
+        if (!((currentScreen instanceof HandledScreen<?> handledScreen) &&
+            (TrademarketContainer.matchesTitle(handledScreen.getTitle().getString()))
+        )) {
+            WynnMarket.LOGGER.info("Clicking to get to Auction Screen");
             click();
+            auctionScanner = new AuctionScanner();
+            tickClickCounter = TICKS_UNTIL_CLICK;
+            return;
+        }
+
+
+        tickResetCounter--;
+
+        //A scan has not been scheduled
+        if (tickScanCounter < 0) return;
+        //A scan has been scheduled. Lock any scans from being scheduled
+        tickScanCounter--;
+        if (tickScanCounter > 0) return;
+        scanLock = true;
+        //A scan runs
+        try {
+            tickScanCounter = -1;
+            scan();
+        } finally {
+            scanLock = false;
+        }
+
+        //We have not moved in between 2 - 4 minutes and now need to move
+        if (tickResetCounter < 0) {
+            WynnMarket.LOGGER.info("Moving to avoid AFK");
+            scanLock = true;
+
+            //Stop AFK.
+            pressEscape();
 
             //reset auction scanner and timers
             auctionScanner = new AuctionScanner();
-            tickMoveCounter = (new Random().nextInt(5 * 60 * 20)) + (5 * 60 * 20);
-            tickClickCounter = TICKS_UNTIL_CLICK;
-            moveRunning = false;
-        }
-	}
-
-	/**
-	 * Schedule a scanning to happen in TICKS_UNTIL_SCAN ticks by setting TICKS_UNTIL_SCAN. Do not anything if a scan is already happening
-	 */
-	public void scheduleScan() {
-		tickScanCounter = TICKS_UNTIL_SCAN;
-	}
-
-    /**
-     * Scans page and sends it to AWS
-     */
-    private void scan() {
-        WynnMarket.LOGGER.info("Scanning Current Auction Page");
-        TrademarketListing[] newListings = auctionScanner.getNewListings();
-        auctionScanner.printTradeMarketListings("currPage", newListings);
-        try {
-            WynnMarket.LOGGER.info(OBJECT_MAPPER.writeValueAsString(newListings));
-        } catch (JsonProcessingException e) {
-            WynnMarket.LOGGER.error("Unable to serialize listing to JSON");
+            tickResetCounter = (new Random().nextInt(2 * 60 * 20)) + (2 * 60 * 20);
+            scanLock = false;
         }
     }
 
@@ -115,5 +107,25 @@ public enum AuctionScannerManager {
             client.interactionManager.attackEntity(client.player, client.targetedEntity);
             client.player.swingHand(Hand.MAIN_HAND);
         }
+    }
+
+	/**
+	 * Schedule a scanning to happen in TICKS_UNTIL_SCAN ticks by setting TICKS_UNTIL_SCAN. Do not anything if a scan is already happening
+	 */
+	public void scheduleScan() {
+        //Only schedule a run if a scan is not running
+        if (!scanLock) {
+            tickScanCounter = TICKS_UNTIL_SCAN;
+        }
+	}
+
+    /**
+     * Scans page and sends it to AWS
+     */
+    private void scan() {
+        WynnMarket.LOGGER.info("Scanning Current Auction Page");
+        TrademarketListing[] newListings = auctionScanner.getNewListings();
+        auctionScanner.printTradeMarketListings("currPage", newListings);
+        DynamoDbListingWriter.sendListingsToDynamoDb(newListings);
     }
 }

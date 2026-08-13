@@ -3,16 +3,15 @@
 	"id": "wynnmarket",
 	"version": "${version}",
 	"name": "WynnMarket",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Scans Wynncraft Trade Market listings with Wynnventory and Wynntils integration.",
 	"authors": [
 		"Pranit Vaikuntam"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"sources": "https://github.com/pranitvaikuntam/wynnmarket"
 	},
 	"license": "CC0-1.0",
-	"icon": "assets/initialmod/icon.png",
+	"icon": "assets/wynnmarket/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
@@ -23,7 +22,7 @@
 		]
 	},
 	"mixins": [
-		"initialmod.mixins.json"
+		"wynnmarket.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=${loader_version}",

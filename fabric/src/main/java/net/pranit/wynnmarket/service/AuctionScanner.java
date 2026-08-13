@@ -1,6 +1,7 @@
 package net.pranit.wynnmarket.service;
 
 
+import com.wynnventory.model.container.TrademarketContainer;
 import com.wynnventory.model.item.trademarket.TrademarketListing;
 import com.wynnventory.model.item.simple.SimpleItem;
 import net.minecraft.client.MinecraftClient;
@@ -64,7 +65,9 @@ public class AuctionScanner {
 	private TrademarketListing[] getPage() throws IncorrectScreenException {
 		//Get screen
 		Screen currentScreen = MinecraftClient.getInstance().currentScreen;
-		if (!(currentScreen instanceof HandledScreen<?> handledScreen)) {
+		if (!((currentScreen instanceof HandledScreen<?> handledScreen) &&
+			(TrademarketContainer.matchesTitle(handledScreen.getTitle().getString()))
+		)) {
 			WynnMarket.LOGGER.warn("Tried to scan auction slots while no handled screen was open.");
 			throw new IncorrectScreenException("Tried to scan auction slots while no handled screen was open.");
 		}
