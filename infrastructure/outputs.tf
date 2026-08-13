@@ -1,25 +1,24 @@
-output "rds_endpoint" {
-  description = "RDS hostname"
-  value       = aws_db_instance.postgres.address
+output "trade_market_listings_table_name" {
+  description = "DynamoDB table name for trade market listings."
+  value       = aws_dynamodb_table.trade_market_listings.name
 }
 
-output "database_url" {
-  description = "PostgreSQL connection URL without the password"
-  value       = "postgresql://${var.database.username}@${aws_db_instance.postgres.address}:${aws_db_instance.postgres.port}/wynnmarket"
-  sensitive   = true
+output "trade_market_listings_table_arn" {
+  description = "DynamoDB table ARN for trade market listings."
+  value       = aws_dynamodb_table.trade_market_listings.arn
 }
 
-output "data_ingestion_function_name" {
-  description = "Data ingestion Lambda function name."
-  value       = aws_lambda_function.data_ingestion.function_name
+output "vpc_id" {
+  description = "VPC ID for future compute resources."
+  value       = aws_vpc.main.id
 }
 
-output "data_ingestion_function_arn" {
-  description = "Data ingestion Lambda function ARN."
-  value       = aws_lambda_function.data_ingestion.arn
+output "private_subnet_ids" {
+  description = "Private subnet IDs for future compute resources."
+  value       = aws_subnet.private[*].id
 }
 
-output "data_ingestion_api_endpoint" {
-  description = "Public API Gateway endpoint for data ingestion."
-  value       = "${aws_apigatewayv2_api.data_ingestion.api_endpoint}${var.data_ingestion.api_route_path}"
+output "dynamodb_vpc_endpoint_id" {
+  description = "DynamoDB gateway VPC endpoint ID."
+  value       = aws_vpc_endpoint.dynamodb.id
 }
