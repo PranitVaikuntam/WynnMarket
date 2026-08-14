@@ -1,41 +1,11 @@
 plugins {
 	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'com.gradleup.shadow' version '8.3.6'
 	id 'maven-publish'
 }
 
 version = project.mod_version
 group = project.maven_group
-
-def dotenv = [:]
-def envFile = file("../.env")
-if (envFile.exists()) {
-	envFile.eachLine { line ->
-		def trimmed = line.trim()
-		if (!trimmed || trimmed.startsWith("#")) return
-
-		if (trimmed.startsWith("export ")) {
-			trimmed = trimmed.substring("export ".length()).trim()
-		}
-
-		def separatorIndex = trimmed.indexOf("=")
-		if (separatorIndex <= 0) return
-
-		def key = trimmed.substring(0, separatorIndex).trim()
-		def value = trimmed.substring(separatorIndex + 1).trim()
-		if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith("\"") && value.endsWith("\""))) {
-			value = value.substring(1, value.length() - 1)
-		}
-
-		dotenv[key] = value
-	}
-}
-
-def envValue = { String key ->
-	System.getenv(key) ?: dotenv[key]
-}
-
-ext.github_username = envValue("GITHUB_USERNAME") ?: ""
-ext.github_pat = envValue("GITHUB_PAT") ?: ""
 
 base {
 	archivesName = project.archives_base_name
@@ -55,27 +25,14 @@ repositories {
 		url = uri("https://api.modrinth.com/maven")
 	}
 
-	//AuthMe
-	maven {
-		name = "TerraformersMC"
-		url = "https://maven.terraformersmc.com/"
+}
+
+configurations {
+	standaloneMods {
+		canBeResolved = true
+		canBeConsumed = false
 	}
-	maven {
-		name = 'Team Resourceful'
-		url = 'https://maven.teamresourceful.com/repository/maven-public/'
-	}
-	maven {
-		name = 'Sponge'
-		url = 'https://repo.spongepowered.org/repository/maven-public'
-	}
-	maven {
-		name = "GitHubPackages"
-		url = "https://maven.pkg.github.com/axieum/authme"
-		credentials {
-			username = project.github_username
-			password = project.github_pat
-		}
-	}
+	implementation.extendsFrom shadowImplementation
 }
 
 fabricApi {
@@ -92,45 +49,27 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	standaloneMods("net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}") { transitive false }
 
 	//Wynnventory
 	modImplementation "maven.modrinth:wynnventory:v${project.wynnventory_version}-fabric"
-	include "maven.modrinth:wynnventory:v${project.wynnventory_version}-fabric"
+	standaloneMods("maven.modrinth:wynnventory:v${project.wynnventory_version}-fabric") { transitive false }
 
 	//Wynntils
 	modImplementation "maven.modrinth:wynntils:v${project.wynntils_version}-fabric"
-	include "maven.modrinth:wynntils:v${project.wynntils_version}-fabric"
-
-	//AuthMe
-	modImplementation "me.axieum.mcmod.authme:authme-fabric:${project.authme_version}"
+	standaloneMods("maven.modrinth:wynntils:v${project.wynntils_version}-fabric") { transitive false }
 
 	//ObjectMapper
-	implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2"
-	include "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2"
-	implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2"
-	include "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2"
+	shadowImplementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2"
+	shadowImplementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2"
 
 	//AWS SDK
-	implementation platform("software.amazon.awssdk:bom:2.29.52")
-	implementation("software.amazon.awssdk:dynamodb") {
+	shadowImplementation platform("software.amazon.awssdk:bom:2.29.52")
+	shadowImplementation("software.amazon.awssdk:dynamodb") {
 		exclude group: "software.amazon.awssdk", module: "apache-client"
 		exclude group: "software.amazon.awssdk", module: "netty-nio-client"
 	}
-	implementation "software.amazon.awssdk:url-connection-client"
-
-	def awsSdkModules = [
-		"annotations", "auth", "aws-core", "aws-json-protocol", "checksums",
-		"checksums-spi", "dynamodb", "endpoints-spi", "http-auth",
-		"http-auth-aws", "http-auth-aws-eventstream", "http-auth-spi",
-		"http-client-spi", "identity-spi", "json-utils", "metrics-spi",
-		"profiles", "protocol-core", "regions", "retries", "retries-spi",
-		"sdk-core", "third-party-jackson-core", "url-connection-client", "utils"
-	]
-	awsSdkModules.each { moduleName ->
-		include "software.amazon.awssdk:${moduleName}:2.29.52"
-	}
-	include "software.amazon.eventstream:eventstream:1.0.1"
-	include "org.reactivestreams:reactive-streams:1.0.4"
+	shadowImplementation "software.amazon.awssdk:url-connection-client"
 
 	//Junit Testing
 	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
@@ -174,6 +113,25 @@ jar {
 	from("LICENSE") {
 		rename { "${it}_${inputs.properties.archivesName}"}
 	}
+}
+
+shadowJar {
+	configurations = [project.configurations.shadowImplementation]
+	archiveClassifier = "dev-shadow"
+	mergeServiceFiles()
+}
+
+remapJar {
+	inputFile.set shadowJar.archiveFile
+}
+
+tasks.register("copyStandaloneMods", Copy) {
+	from configurations.standaloneMods
+	into layout.buildDirectory.dir("standaloneMods")
+}
+
+tasks.named("build") {
+	dependsOn tasks.named("copyStandaloneMods")
 }
 
 // configure the maven publication
