@@ -1,0 +1,12 @@
+.git
+.gradle
+.idea
+fabric/.gradle
+fabric/run
+fabric/build/*
+!fabric/build/libs/
+fabric/build/libs/*
+!fabric/build/libs/wynnmarket-1.0.0.jar
+!fabric/build/standaloneMods/
+!fabric/build/standaloneMods/*.jar
+infrastructure/.terraform

@@ -18,4 +18,6 @@ resource "aws_dynamodb_table" "trade_market_listings" {
   point_in_time_recovery {
     enabled = true
   }
+
+  tags = local.common_tags
 }

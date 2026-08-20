@@ -23,3 +23,9 @@ provider "aws" {
     }
   }
 }
+
+locals {
+  common_tags = {
+    project = "wynnmarket"
+  }
+}

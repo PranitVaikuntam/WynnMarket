@@ -110,6 +110,7 @@ public final class DynamoDbListingWriter {
             String sortKey = listingNode.get("timestamp").asText() + "_" + index;
             listingPayload.put("pk", AttributeValue.fromS(partitionKey));
             listingPayload.put("sk", AttributeValue.fromS(sortKey));
+            listingPayload.put("timestamp", AttributeValue.fromS(listingNode.get("timestamp").asText()));
             listingPayload.put("amount", AttributeValue.fromN(listingNode.get("amount").asText()));
             listingPayload.put("listingPrice", AttributeValue.fromN(listingNode.get("listingPrice").asText()));
 
@@ -119,7 +120,9 @@ public final class DynamoDbListingWriter {
             } else if (hasItemType(partitionKey, TIER_ITEM_TYPES)) {
                 itemPayload = tierFilter(itemNode);
             } else if (hasItemType(partitionKey, GEAR_ITEM_TYPES)) {
-                itemPayload = gearFilter(itemNode);
+                WynnMarket.LOGGER.info("Skipping gear item listing: {}", itemNode.get("name").asText());
+                return;
+//                itemPayload = gearFilter(itemNode);
             } else {
                 WynnMarket.LOGGER.warn("Skipping unsupported item type: {}", partitionKey);
                 return;

@@ -7,59 +7,48 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = {
+  tags = merge(local.common_tags, {
     Name = "wynnmarket"
-  }
+  })
 }
 
-resource "aws_subnet" "private" {
-  count = length(var.private_subnet_cidrs)
+resource "aws_subnet" "public" {
+  count = length(var.public_subnet_cidrs)
 
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.private_subnet_cidrs[count.index]
+  cidr_block              = var.public_subnet_cidrs[count.index]
   availability_zone       = data.aws_availability_zones.available.names[count.index]
-  map_public_ip_on_launch = false
+  map_public_ip_on_launch = true
 
-  tags = {
-    Name = "wynnmarket-private-${count.index + 1}"
-  }
+  tags = merge(local.common_tags, {
+    Name = "wynnmarket-public-${count.index + 1}"
+  })
 }
 
-resource "aws_route_table" "private" {
+resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = "wynnmarket-private"
-  }
-}
-
-resource "aws_route_table_association" "private" {
-  count = length(aws_subnet.private)
-
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_vpc_endpoint" "dynamodb" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.${var.aws_region}.dynamodb"
-  vpc_endpoint_type = "Gateway"
-  route_table_ids   = [aws_route_table.private.id]
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = "*"
-      Action    = "dynamodb:*"
-      Resource = [
-        aws_dynamodb_table.trade_market_listings.arn,
-        "${aws_dynamodb_table.trade_market_listings.arn}/index/*"
-      ]
-    }]
+  tags = merge(local.common_tags, {
+    Name = "wynnmarket"
   })
+}
 
-  tags = {
-    Name = "wynnmarket-dynamodb"
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
   }
+
+  tags = merge(local.common_tags, {
+    Name = "wynnmarket-public"
+  })
+}
+
+resource "aws_route_table_association" "public" {
+  count = length(aws_subnet.public)
+
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
 }

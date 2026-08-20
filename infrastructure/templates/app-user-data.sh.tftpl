@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf update -y
+dnf install -y docker awscli-2 || dnf install -y docker awscli
+
+systemctl enable --now docker
+
+aws ecr get-login-password --region "${aws_region}" \
+  | docker login --username AWS --password-stdin "$(echo "${image_uri}" | cut -d/ -f1)"
+
+docker pull "${image_uri}"
+docker rm -f "${container_name}" || true
+docker run \
+  --detach \
+  --restart unless-stopped \
+  --name "${container_name}" \
+  --env "WYNNMARKET_AWS_REGION=${aws_region}" \
+  --env "WYNNMARKET_DYNAMODB_TABLE=${dynamodb_table_name}" \
+  "${image_uri}"
