@@ -53,3 +53,4 @@ infrastructure/lambdas/*/layer/python/
 # secrets
 .env
 fabric/secrets.gradle
+auth-local/

@@ -1,0 +1,49 @@
+#!/bin/bash
+set -euo pipefail
+
+config_file="/etc/wynnmarket/container.env"
+[[ -r "$config_file" ]] || { echo "missing $config_file" >&2; exit 1; }
+
+# shellcheck disable=SC1091
+source "$config_file"
+
+tag="$${1:-$WYNNMARKET_IMAGE_TAG}"
+if [[ ! "$tag" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "invalid image tag: $tag" >&2
+  exit 2
+fi
+
+image_uri="$ECR_REPOSITORY_URL:$tag"
+registry="$${ECR_REPOSITORY_URL%%/*}"
+
+aws ecr get-login-password --region "$AWS_REGION" \
+  | docker login --username AWS --password-stdin "$registry"
+docker pull "$image_uri"
+docker rm -f "$CONTAINER_NAME" || true
+
+docker_args=(
+  --detach
+  --restart unless-stopped
+  --name "$CONTAINER_NAME"
+  --env "WYNNMARKET_AWS_REGION=$AWS_REGION"
+  --env "WYNNMARKET_DYNAMODB_TABLE=$DYNAMODB_TABLE_NAME"
+  --env "SERVER_ADDRESS=$SERVER_ADDRESS"
+  --env "WYNNMARKET_STARTUP_TIMEOUT_SECONDS=$STARTUP_TIMEOUT"
+  --env "WYNNMARKET_SCAN_TIMEOUT_SECONDS=$SCAN_TIMEOUT"
+  --env "WYNNMARKET_HEALTH_MARKER=$HEALTH_MARKER"
+)
+
+if [[ -n "$${LOG_GROUP_NAME:-}" ]]; then
+  docker_args+=(--log-driver awslogs
+    --log-opt "awslogs-region=$AWS_REGION"
+    --log-opt "awslogs-group=$LOG_GROUP_NAME"
+    --log-opt "awslogs-stream=$(hostname)")
+fi
+
+if [[ -n "$${AUTH_FILE:-}" ]]; then
+  [[ -s "$AUTH_FILE" ]] || { echo "missing auth file: $AUTH_FILE" >&2; exit 1; }
+  docker_args+=(--mount "type=bind,source=$AUTH_FILE,target=/headlessmc/HeadlessMC/auth/.accounts.json")
+fi
+
+docker run "$${docker_args[@]}" "$image_uri"
+printf 'WYNNMARKET_IMAGE_TAG=%q\n' "$tag" > /etc/wynnmarket/current-image.env

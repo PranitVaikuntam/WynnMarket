@@ -1,0 +1,24 @@
+# Copy this file to terraform.tfvars for a local, non-secret configuration,
+# or export the equivalent TF_VAR_* values from .env.
+
+aws_region          = "us-east-1"
+dynamodb_table_name = "wynnmarket-trade-market-listings"
+vpc_cidr            = "10.0.0.0/16"
+public_subnet_cidrs = ["10.0.101.0/24"]
+
+enable_app_instance       = true
+enable_auth_volume        = true
+auth_volume_size_gib      = 1
+auth_state_migrated       = false
+app_image_tag             = "unattended-1"
+
+app_instance_type          = "t3.medium"
+app_container_name         = "wynnmarket"
+wynncraft_server_address   = "play.wynncraft.com"
+startup_timeout_seconds    = 600
+scan_timeout_seconds       = 600
+health_marker_path         = "/tmp/wynnmarket/last-valid-scan"
+cloudwatch_log_retention_days = 14
+
+# Keep the alert email out of committed files and provide it at apply time:
+# export TF_VAR_alert_email=you@example.com

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="[%d{HH:mm:ss}] [%t/%level] (%logger{1.}) %msg%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <!-- Keep WynnMarket operational events at INFO. -->
+        <Logger name="wynnmarket" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+
+        <!-- Keep dependency failures visible without forwarding normal chatter. -->
+        <Root level="ERROR">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>

@@ -42,3 +42,18 @@ output "app_instance_public_ip" {
   description = "Public IP for the optional EC2 container host."
   value       = try(aws_instance.app[0].public_ip, null)
 }
+
+output "auth_volume_id" {
+  description = "Dedicated encrypted EBS volume containing only HeadlessMC .accounts.json."
+  value       = try(aws_ebs_volume.auth[0].id, null)
+}
+
+output "cloudwatch_log_group_name" {
+  description = "CloudWatch log group receiving WynnMarket container output."
+  value       = aws_cloudwatch_log_group.app.name
+}
+
+output "alarm_topic_arn" {
+  description = "SNS topic used for ALARM and recovery notifications."
+  value       = aws_sns_topic.alarms.arn
+}

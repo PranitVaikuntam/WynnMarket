@@ -1,0 +1,43 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf update -y
+dnf install -y docker awscli-2 jq || dnf install -y docker awscli jq
+systemctl enable --now docker
+
+auth_volume_serial="${replace(auth_volume_id, "-", "")}"
+auth_device="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_$${auth_volume_serial}"
+for attempt in $(seq 1 60); do
+  [[ -b "$auth_device" ]] && break
+  sleep 2
+done
+[[ -b "$auth_device" ]]
+
+mkdir -p "${auth_mount_path}"
+mount "$auth_device" "${auth_mount_path}"
+auth_file="${auth_mount_path}/.accounts.json"
+[[ -s "$auth_file" ]]
+jq -e . "$auth_file" >/dev/null
+chmod 600 "$auth_file"
+
+mkdir -p /etc/wynnmarket
+cat > /etc/wynnmarket/container.env <<'WynnMarketConfig'
+AWS_REGION=${aws_region}
+ECR_REPOSITORY_URL=${repository_url}
+WYNNMARKET_IMAGE_TAG=${app_image_tag}
+CONTAINER_NAME=${container_name}
+LOG_GROUP_NAME=${log_group_name}
+DYNAMODB_TABLE_NAME=${dynamodb_table_name}
+SERVER_ADDRESS=${server_address}
+STARTUP_TIMEOUT=${startup_timeout}
+SCAN_TIMEOUT=${scan_timeout}
+HEALTH_MARKER=${health_marker}
+WynnMarketConfig
+chmod 600 /etc/wynnmarket/container.env
+printf 'AUTH_FILE=%s\n' "$auth_file" >> /etc/wynnmarket/container.env
+
+cat > /usr/local/sbin/wynnmarket-deploy <<'WynnMarketDeploy'
+${deploy_script}
+WynnMarketDeploy
+chmod 755 /usr/local/sbin/wynnmarket-deploy
+/usr/local/sbin/wynnmarket-deploy "${app_image_tag}"

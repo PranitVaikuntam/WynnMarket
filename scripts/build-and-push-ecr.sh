@@ -4,6 +4,12 @@ set -euo pipefail
 TAG="${1:-latest}"
 PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+echo "Building the Fabric mod..."
+(
+  cd "${ROOT_DIR}/fabric"
+  ./gradlew clean build
+)
 INFRA_DIR="${ROOT_DIR}/infrastructure"
 
 REPOSITORY_URL="$(terraform -chdir="${INFRA_DIR}" output -raw ecr_repository_url)"

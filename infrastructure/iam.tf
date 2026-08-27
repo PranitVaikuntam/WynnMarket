@@ -7,6 +7,7 @@ data "aws_iam_policy_document" "ec2_assume_role" {
       identifiers = ["ec2.amazonaws.com"]
     }
   }
+
 }
 
 resource "aws_iam_role" "app_instance" {
@@ -45,6 +46,15 @@ data "aws_iam_policy_document" "app_instance" {
       aws_dynamodb_table.trade_market_listings.arn,
       "${aws_dynamodb_table.trade_market_listings.arn}/index/*"
     ]
+  }
+
+  statement {
+    sid = "WriteContainerLogs"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    resources = ["${aws_cloudwatch_log_group.app.arn}:*"]
   }
 }
 

@@ -1,7 +1,13 @@
 .git
+.env
+**/.env
+*.tfvars
 .gradle
 .idea
 fabric/.gradle
+fabric/.gradle-local
+fabric/.idea
+fabric/bin
 fabric/run
 fabric/build/*
 !fabric/build/libs/

@@ -45,14 +45,56 @@ resource "aws_instance" "app" {
   })
 
   user_data_replace_on_change = true
-  user_data = templatefile("${path.module}/templates/app-user-data.sh.tftpl", {
+  user_data = templatefile("${path.module}/templates/app-user-data-unattended.sh.tftpl", {
     aws_region          = var.aws_region
-    image_uri           = "${aws_ecr_repository.app.repository_url}:${var.app_image_tag}"
+    repository_url      = aws_ecr_repository.app.repository_url
+    app_image_tag       = var.app_image_tag
     container_name      = var.app_container_name
     dynamodb_table_name = aws_dynamodb_table.trade_market_listings.name
+    server_address      = var.wynncraft_server_address
+    startup_timeout     = var.startup_timeout_seconds
+    scan_timeout        = var.scan_timeout_seconds
+    health_marker       = var.health_marker_path
+    log_group_name      = aws_cloudwatch_log_group.app.name
+    auth_volume_id      = aws_ebs_volume.auth[0].id
+    auth_mount_path     = "/mnt/wynnmarket-auth"
+    deploy_script       = templatefile("${path.module}/templates/app-deploy.sh.tftpl", {})
   })
+
+  lifecycle {
+    ignore_changes = [ami, volume_tags]
+
+    precondition {
+      condition     = !var.enable_app_instance || (var.enable_auth_volume && var.auth_state_migrated)
+      error_message = "The app instance requires enable_auth_volume=true and auth_state_migrated=true."
+    }
+  }
 
   tags = merge(local.common_tags, {
     Name = "wynnmarket-app"
   })
+}
+
+resource "aws_ebs_volume" "auth" {
+  count = var.enable_auth_volume ? 1 : 0
+
+  availability_zone = data.aws_availability_zones.available.names[0]
+  encrypted         = true
+  final_snapshot    = true
+  kms_key_id        = var.auth_volume_kms_key_id
+  size              = var.auth_volume_size_gib
+  type              = var.auth_volume_type
+
+  tags = merge(local.common_tags, {
+    Name        = "wynnmarket-headlessmc-auth"
+    sensitivity = "authentication"
+  })
+}
+
+resource "aws_volume_attachment" "auth" {
+  count = var.enable_app_instance && var.enable_auth_volume ? 1 : 0
+
+  device_name = var.auth_volume_device_name
+  instance_id = aws_instance.app[0].id
+  volume_id   = aws_ebs_volume.auth[0].id
 }
