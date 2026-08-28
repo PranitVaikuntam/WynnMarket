@@ -10,7 +10,7 @@
         <!-- Keep WynnMarket operational events at INFO. -->
         <Logger name="wynnmarket" level="INFO" additivity="false">
             <AppenderRef ref="Console"/>
-        </Logger>
+        </Logger> 
 
         <!-- Keep dependency failures visible without forwarding normal chatter. -->
         <Root level="ERROR">
