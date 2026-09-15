@@ -1,3 +1,4 @@
+# Gets the msot recent AWS AMI image
 data "aws_ami" "amazon_linux_2023" {
   most_recent = true
   owners      = ["amazon"]
@@ -13,32 +14,46 @@ data "aws_ami" "amazon_linux_2023" {
   }
 }
 
-resource "aws_security_group" "app_instance" {
-  name        = "wynnmarket-app-instance"
-  description = "Outbound-only security group for the WynnMarket container host."
+# Creates a security group for the EC2 Instance
+resource "aws_security_group" "app_sg" {
+  name        = "wynnmarket-app-sg"
+  description = "Security group for the WynnMarket container host."
   vpc_id      = aws_vpc.main.id
+}
 
-  egress {
-    description = "Allow outbound traffic for package installs, ECR pulls, and AWS APIs."
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+resource "aws_vpc_security_group_ingress_rule" "allow_web_traffic" {
+  security_group_id = aws_security_group.app_sg.id
+
+  cidr_ipv4   = "0.0.0.0/0"
+  from_port   = 80
+  ip_protocol = "tcp"
+  to_port     = 80
 
   tags = merge(local.common_tags, {
-    Name = "wynnmarket-app-instance"
+    Name = "wynnmarket-app-instance-ingress"
   })
 }
 
-resource "aws_instance" "app" {
-  count = var.enable_app_instance ? 1 : 0
+resource "aws_vpc_security_group_egress_rule" "allow_web_traffic" {
+  security_group_id = aws_security_group.app_sg.id
 
+  cidr_ipv4   = "0.0.0.0/0"
+  from_port   = -1
+  ip_protocol = "-1"
+  to_port     = -1
+
+  tags = merge(local.common_tags, {
+    Name = "wynnmarket-app-instance-egress"
+  })
+}
+
+
+resource "aws_instance" "app" {
   ami                         = data.aws_ami.amazon_linux_2023.id
   instance_type               = var.app_instance_type
-  subnet_id                   = aws_subnet.public[0].id
-  vpc_security_group_ids      = [aws_security_group.app_instance.id]
-  iam_instance_profile        = aws_iam_instance_profile.app_instance.name
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.app_sg.id]
+  iam_instance_profile        = aws_iam_instance_profile.app_profile.name
   associate_public_ip_address = true
   volume_tags = merge(local.common_tags, {
     Name = "wynnmarket-app-root"
@@ -56,7 +71,7 @@ resource "aws_instance" "app" {
     scan_timeout        = var.scan_timeout_seconds
     health_marker       = var.health_marker_path
     log_group_name      = aws_cloudwatch_log_group.app.name
-    auth_volume_id      = aws_ebs_volume.auth[0].id
+    auth_volume_id      = aws_ebs_volume.auth.id
     auth_mount_path     = "/mnt/wynnmarket-auth"
     deploy_script       = templatefile("${path.module}/templates/app-deploy.sh.tftpl", {})
   })
@@ -65,8 +80,8 @@ resource "aws_instance" "app" {
     ignore_changes = [ami, volume_tags]
 
     precondition {
-      condition     = !var.enable_app_instance || (var.enable_auth_volume && var.auth_state_migrated)
-      error_message = "The app instance requires enable_auth_volume=true and auth_state_migrated=true."
+      condition     = var.auth_state_migrated
+      error_message = "The app instance requires auth_state_migrated=true."
     }
   }
 
@@ -76,8 +91,6 @@ resource "aws_instance" "app" {
 }
 
 resource "aws_ebs_volume" "auth" {
-  count = var.enable_auth_volume ? 1 : 0
-
   availability_zone = data.aws_availability_zones.available.names[0]
   encrypted         = true
   final_snapshot    = true
@@ -92,9 +105,7 @@ resource "aws_ebs_volume" "auth" {
 }
 
 resource "aws_volume_attachment" "auth" {
-  count = var.enable_app_instance && var.enable_auth_volume ? 1 : 0
-
   device_name = var.auth_volume_device_name
-  instance_id = aws_instance.app[0].id
-  volume_id   = aws_ebs_volume.auth[0].id
+  instance_id = aws_instance.app.id
+  volume_id   = aws_ebs_volume.auth.id
 }

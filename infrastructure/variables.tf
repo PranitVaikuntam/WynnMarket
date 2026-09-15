@@ -16,14 +16,14 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-variable "public_subnet_cidrs" {
-  description = "Public subnet CIDR blocks for optional EC2 container hosts."
-  type        = list(string)
-  default     = ["10.0.101.0/24"]
+variable "public_subnet_cidr" {
+  description = "Public subnet CIDR block for the EC2 container host."
+  type        = string
+  default     = "10.0.101.0/24"
 
   validation {
-    condition     = length(var.public_subnet_cidrs) == 1
-    error_message = "Exactly one public subnet CIDR block is required."
+    condition     = can(cidrhost(var.public_subnet_cidr, 0))
+    error_message = "Must be a valid IPv4 CIDR block."
   }
 }
 
@@ -33,26 +33,20 @@ variable "ecr_repository_name" {
   default     = "wynnmarket"
 }
 
-variable "enable_app_instance" {
-  description = "When true, create an EC2 instance that pulls and runs the ECR image."
-  type        = bool
-  default     = false
-}
-
 variable "app_instance_type" {
-  description = "EC2 instance type for the optional container host."
+  description = "EC2 instance type for the container host."
   type        = string
   default     = "t3.medium"
 }
 
 variable "app_image_tag" {
-  description = "Image tag the optional EC2 host should pull from ECR."
+  description = "Image tag the EC2 host should pull from ECR."
   type        = string
   default     = "latest"
 }
 
 variable "app_container_name" {
-  description = "Docker container name used on the optional EC2 host."
+  description = "Docker container name used on the EC2 host."
   type        = string
   default     = "wynnmarket"
 }
@@ -94,12 +88,6 @@ variable "health_marker_path" {
     condition     = startswith(var.health_marker_path, "/")
     error_message = "health_marker_path must be absolute."
   }
-}
-
-variable "enable_auth_volume" {
-  description = "Create the dedicated encrypted EBS volume for HeadlessMC account state."
-  type        = bool
-  default     = true
 }
 
 variable "auth_volume_size_gib" {

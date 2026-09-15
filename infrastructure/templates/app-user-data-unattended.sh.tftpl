@@ -1,10 +1,12 @@
 #!/bin/bash
 set -euxo pipefail
 
+# Install required packages and enable Docker
 dnf update -y
 dnf install -y docker awscli-2 jq || dnf install -y docker awscli jq
 systemctl enable --now docker
 
+# Create a mount point for the auth volume and wait for the device to appear
 auth_volume_serial="${replace(auth_volume_id, "-", "")}"
 auth_device="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_$${auth_volume_serial}"
 for attempt in $(seq 1 60); do
@@ -13,6 +15,7 @@ for attempt in $(seq 1 60); do
 done
 [[ -b "$auth_device" ]]
 
+# Create a mount point for the auth volume and mount it
 mkdir -p "${auth_mount_path}"
 mount "$auth_device" "${auth_mount_path}"
 auth_file="${auth_mount_path}/.accounts.json"
@@ -20,6 +23,7 @@ auth_file="${auth_mount_path}/.accounts.json"
 jq -e . "$auth_file" >/dev/null
 chmod 600 "$auth_file"
 
+# Create the container.env file using environment variables provided by Terraform. This file will be sourced by the deploy script.
 mkdir -p /etc/wynnmarket
 cat > /etc/wynnmarket/container.env <<'WynnMarketConfig'
 AWS_REGION=${aws_region}
@@ -35,6 +39,7 @@ HEALTH_MARKER=${health_marker}
 WynnMarketConfig
 chmod 600 /etc/wynnmarket/container.env
 printf 'AUTH_FILE=%s\n' "$auth_file" >> /etc/wynnmarket/container.env
+
 
 cat > /usr/local/sbin/wynnmarket-deploy <<'WynnMarketDeploy'
 ${deploy_script}

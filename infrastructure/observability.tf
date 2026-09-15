@@ -1,9 +1,3 @@
-resource "aws_cloudwatch_log_group" "app" {
-  name              = "/wynnmarket/container"
-  retention_in_days = var.cloudwatch_log_retention_days
-  tags              = local.common_tags
-}
-
 resource "aws_sns_topic" "alarms" {
   name = "wynnmarket-alarms"
   tags = local.common_tags
@@ -17,6 +11,14 @@ resource "aws_sns_topic_subscription" "email" {
   endpoint  = var.alert_email
 }
 
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/wynnmarket/container"
+  retention_in_days = var.cloudwatch_log_retention_days
+  tags              = local.common_tags
+}
+
+
+# Creates a CloudWatch metric filter and alarm for the WynnMarket scan heartbeat
 resource "aws_cloudwatch_log_metric_filter" "scan_heartbeat" {
   name           = "wynnmarket-valid-scan-heartbeat"
   log_group_name = aws_cloudwatch_log_group.app.name
@@ -30,8 +32,6 @@ resource "aws_cloudwatch_log_metric_filter" "scan_heartbeat" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "missing_scan_heartbeat" {
-  count = var.enable_app_instance ? 1 : 0
-
   alarm_name          = "wynnmarket-missing-scan-heartbeat"
   alarm_description   = "No valid Auction House scan heartbeat was logged within ten minutes."
   namespace           = "WynnMarket"
@@ -48,6 +48,8 @@ resource "aws_cloudwatch_metric_alarm" "missing_scan_heartbeat" {
   tags                = local.common_tags
 }
 
+
+# Creates a CloudWatch metric alarm for DynamoDB write failures
 resource "aws_cloudwatch_log_metric_filter" "dynamodb_write_failure" {
   name           = "wynnmarket-dynamodb-write-failure"
   log_group_name = aws_cloudwatch_log_group.app.name
@@ -76,14 +78,14 @@ resource "aws_cloudwatch_metric_alarm" "dynamodb_write_failure" {
   tags                = local.common_tags
 }
 
-resource "aws_cloudwatch_metric_alarm" "ec2_system_status" {
-  count = var.enable_app_instance ? 1 : 0
 
+# Creates a CloudWatch metric alarm for EC2 instance status check failures - AWS side
+resource "aws_cloudwatch_metric_alarm" "ec2_system_status" {
   alarm_name          = "wynnmarket-ec2-system-status"
   alarm_description   = "The EC2 host failed system status checks; automatic recovery is requested."
   namespace           = "AWS/EC2"
   metric_name         = "StatusCheckFailed_System"
-  dimensions          = { InstanceId = aws_instance.app[0].id }
+  dimensions          = { InstanceId = aws_instance.app.id }
   statistic           = "Maximum"
   period              = 60
   evaluation_periods  = 2
@@ -99,14 +101,14 @@ resource "aws_cloudwatch_metric_alarm" "ec2_system_status" {
   tags       = local.common_tags
 }
 
-resource "aws_cloudwatch_metric_alarm" "ec2_status" {
-  count = var.enable_app_instance ? 1 : 0
 
+# Creates a CloudWatch metric alarm for EC2 instance status check failures - instance side
+resource "aws_cloudwatch_metric_alarm" "ec2_status" {
   alarm_name          = "wynnmarket-ec2-status"
   alarm_description   = "The EC2 host failed an instance or system status check."
   namespace           = "AWS/EC2"
   metric_name         = "StatusCheckFailed"
-  dimensions          = { InstanceId = aws_instance.app[0].id }
+  dimensions          = { InstanceId = aws_instance.app.id }
   statistic           = "Maximum"
   period              = 60
   evaluation_periods  = 2
@@ -118,3 +120,6 @@ resource "aws_cloudwatch_metric_alarm" "ec2_status" {
   ok_actions          = [aws_sns_topic.alarms.arn]
   tags                = local.common_tags
 }
+
+
+

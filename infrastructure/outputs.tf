@@ -13,9 +13,9 @@ output "vpc_id" {
   value       = aws_vpc.main.id
 }
 
-output "public_subnet_ids" {
-  description = "Public subnet IDs for optional EC2 container hosts."
-  value       = aws_subnet.public[*].id
+output "public_subnet_id" {
+  description = "Public subnet ID for the EC2 container host."
+  value       = aws_subnet.public.id
 }
 
 output "aws_region" {
@@ -34,18 +34,23 @@ output "ecr_repository_url" {
 }
 
 output "app_instance_id" {
-  description = "EC2 instance ID when enable_app_instance is true."
-  value       = try(aws_instance.app[0].id, null)
+  description = "EC2 instance ID for the container host."
+  value       = aws_instance.app.id
 }
 
 output "app_instance_public_ip" {
-  description = "Public IP for the optional EC2 container host."
-  value       = try(aws_instance.app[0].public_ip, null)
+  description = "Public IP for the EC2 container host."
+  value       = aws_instance.app.public_ip
+}
+
+output "web_url" {
+  description = "Public HTTP URL for the WynnMarket web application."
+  value       = "http://${aws_instance.app.public_ip}"
 }
 
 output "auth_volume_id" {
   description = "Dedicated encrypted EBS volume containing only HeadlessMC .accounts.json."
-  value       = try(aws_ebs_volume.auth[0].id, null)
+  value       = aws_ebs_volume.auth.id
 }
 
 output "cloudwatch_log_group_name" {

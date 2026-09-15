@@ -4,10 +4,8 @@
 aws_region          = "us-east-1"
 dynamodb_table_name = "wynnmarket-trade-market-listings"
 vpc_cidr            = "10.0.0.0/16"
-public_subnet_cidrs = ["10.0.101.0/24"]
+public_subnet_cidr = "10.0.101.0/24"
 
-enable_app_instance       = true
-enable_auth_volume        = true
 auth_volume_size_gib      = 1
 auth_state_migrated       = false
 app_image_tag             = "unattended-1"
