@@ -1,12 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
+# Source the container.env file to get the configuration variables
 config_file="/etc/wynnmarket/container.env"
 [[ -r "$config_file" ]] || { echo "missing $config_file" >&2; exit 1; }
 
 # shellcheck disable=SC1091
 source "$config_file"
 
+
+# Get the image fron ECR
 tag="$${1:-$WYNNMARKET_IMAGE_TAG}"
 if [[ ! "$tag" =~ ^[A-Za-z0-9._-]+$ ]]; then
   echo "invalid image tag: $tag" >&2
@@ -21,6 +24,8 @@ aws ecr get-login-password --region "$AWS_REGION" \
 docker pull "$image_uri"
 docker rm -f "$CONTAINER_NAME" || true
 
+
+# Build the docker run command with the appropriate arguments
 docker_args=(
   --detach
   --restart unless-stopped

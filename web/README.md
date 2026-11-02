@@ -32,21 +32,21 @@ HOST=0.0.0.0 PORT=3000 node dist/standalone/server.js
 
 ## EC2 container
 
-Build from the repository root:
+The repository-level deployment script is the recommended path. It uses SSM, clones or updates the repository on EC2, builds this Dockerfile there, and publishes the container on host port 80:
 
 ```bash
-docker build -t wynnmarket-web:latest web
-docker run -d \
-  --name wynnmarket-web \
-  --restart unless-stopped \
-  -p 3000:3000 \
-  -e AWS_REGION=us-east-1 \
-  -e WYNNMARKET_DYNAMODB_TABLE=wynnmarket-trade-market-listings \
-  -e WYNNMARKET_SITE_URL=https://market.example.com \
-  wynnmarket-web:latest
+./scripts/deploy-web-to-ec2.sh main
 ```
 
-The EC2 instance role needs only these read actions on the listings table:
+To build manually from a checkout already on the EC2 host:
+
+```bash
+sudo AWS_REGION=us-east-1 \
+  WYNNMARKET_DYNAMODB_TABLE=wynnmarket-trade-market-listings \
+  ./scripts/run-web-on-ec2.sh
+```
+
+The web application requires these read actions on the EC2 instance role in addition to the collector's existing write permissions:
 
 ```json
 {
@@ -60,7 +60,7 @@ The EC2 instance role needs only these read actions on the listings table:
 }
 ```
 
-Expose the container through the host's existing reverse proxy or load balancer. The app provides `/api/health` for container and load-balancer health checks. The current repository security group is outbound-only, so public deployment also requires an explicitly scoped inbound listener.
+Terraform exposes HTTP port 80 through the EC2 security group. The container publishes host port 80 to its internal port 3000 and provides `/api/health` for its Docker health check. No SSH ingress is required.
 
 ## Environment variables
 

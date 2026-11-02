@@ -10,8 +10,8 @@ LAUNCH_TARGET="${WYNNMARKET_LAUNCH_TARGET:-fabric:1.21.11}"
 AUTH_FILE="${WYNNMARKET_AUTH_FILE:-/headlessmc/HeadlessMC/auth/.accounts.json}"
 REQUIRE_AUTH="${WYNNMARKET_REQUIRE_AUTH:-true}"
 RUNTIME_DIR="${WYNNMARKET_RUNTIME_DIR:-/tmp/wynnmarket}"
-LOG_FILE="${RUNTIME_DIR}/headlessmc.log"
 COMMAND_FIFO="${RUNTIME_DIR}/commands.fifo"
+OUTPUT_FIFO="${RUNTIME_DIR}/output.fifo"
 SUPERVISOR_INTERVAL_SECONDS="${WYNNMARKET_SUPERVISOR_INTERVAL_SECONDS:-2}"
 LOG4J_CONFIG="${WYNNMARKET_LOG4J_CONFIG:-/headlessmc/log4j2-wynnmarket.xml}"
 OPENAL_LIBRARY="${WYNNMARKET_OPENAL_LIBRARY:-}"
@@ -31,7 +31,6 @@ fi
 mkdir -p "${RUNTIME_DIR}" "$(dirname "${HEALTH_MARKER}")"
 rm -f "${COMMAND_FIFO}" "${HEALTH_MARKER}"
 mkfifo "${COMMAND_FIFO}"
-: > "${LOG_FILE}"
 
 GAME_MODS_DIR="${WYNNMARKET_GAME_DIR:-/root/.minecraft}/mods"
 mkdir -p "${GAME_MODS_DIR}"
@@ -57,15 +56,44 @@ cleanup() {
     kill -TERM "${HMC_PID}" 2>/dev/null || true
     wait "${HMC_PID}" 2>/dev/null || true
   fi
+  exec 4<&- 2>/dev/null || true
+  exec 4>&- 2>/dev/null || true
   exec 3>&- 2>/dev/null || true
-  rm -f "${COMMAND_FIFO}"
+  rm -f "${COMMAND_FIFO}" "${OUTPUT_FIFO}"
 }
 trap cleanup EXIT INT TERM
 
 echo "event=supervisor_start server=${SERVER_ADDRESS} launch=${LAUNCH_TARGET} startup_timeout_seconds=${STARTUP_TIMEOUT_SECONDS} scan_timeout_seconds=${SCAN_TIMEOUT_SECONDS}"
-"${HMC_COMMAND}" < "${COMMAND_FIFO}" > >(tee -a "${LOG_FILE}") 2>&1 &
+mkfifo "${OUTPUT_FIFO}"
+# Open the FIFO read/write so the HeadlessMC writer cannot block before the
+# supervisor starts draining output. All lines are forwarded to stdout.
+exec 4<> "${OUTPUT_FIFO}"
+"${HMC_COMMAND}" < "${COMMAND_FIFO}" > "${OUTPUT_FIFO}" 2>&1 &
 HMC_PID=$!
 exec 3> "${COMMAND_FIFO}"
+
+initialized=false
+connect_sent=false
+requested_reconnects=0
+handled_reconnects=0
+
+forward_output() {
+  local line="$1"
+  printf '%s\n' "${line}"
+  if [[ "${line}" == *"WynnMarket initialized"* ]]; then
+    initialized=true
+  fi
+  if [[ "${line}" == *"event=reconnect_requested"* ]]; then
+    ((requested_reconnects += 1))
+  fi
+}
+
+drain_output() {
+  local line
+  while IFS= read -r -t 1 -u 4 line; do
+    forward_output "${line}"
+  done
+}
 
 send_command() {
   local command="$1"
@@ -77,19 +105,17 @@ send_command "launch ${LAUNCH_TARGET} -lwjgl"
 echo "event=launch_requested target=${LAUNCH_TARGET}"
 
 started_at=$(date +%s)
-connect_sent=false
 healthy_once=false
-handled_reconnects=0
 
 while kill -0 "${HMC_PID}" 2>/dev/null; do
+  drain_output
   now=$(date +%s)
-  if [[ "${connect_sent}" == "false" ]] && grep -q 'WynnMarket initialized' "${LOG_FILE}"; then
+  if [[ "${initialized}" == "true" && "${connect_sent}" == "false" ]]; then
     send_command "connect ${SERVER_ADDRESS}"
     connect_sent=true
     echo "event=connect_requested server=${SERVER_ADDRESS}"
   fi
 
-  requested_reconnects=$(grep -c 'event=reconnect_requested' "${LOG_FILE}" || true)
   if (( requested_reconnects > handled_reconnects )); then
     echo "event=reconnect_started request_count=${requested_reconnects}"
     send_command "disconnect" || true
@@ -119,6 +145,7 @@ while kill -0 "${HMC_PID}" 2>/dev/null; do
   sleep "${SUPERVISOR_INTERVAL_SECONDS}"
 done
 
+drain_output
 set +e
 wait "${HMC_PID}"
 exit_code=$?

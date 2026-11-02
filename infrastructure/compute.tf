@@ -48,6 +48,7 @@ resource "aws_vpc_security_group_egress_rule" "allow_web_traffic" {
 }
 
 
+# Creates and EC2 instance for the container host
 resource "aws_instance" "app" {
   ami                         = data.aws_ami.amazon_linux_2023.id
   instance_type               = var.app_instance_type
@@ -90,6 +91,8 @@ resource "aws_instance" "app" {
   })
 }
 
+
+# Creates an EBS volume for the authentication state
 resource "aws_ebs_volume" "auth" {
   availability_zone = data.aws_availability_zones.available.names[0]
   encrypted         = true

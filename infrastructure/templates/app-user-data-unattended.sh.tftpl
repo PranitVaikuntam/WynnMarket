@@ -41,8 +41,11 @@ chmod 600 /etc/wynnmarket/container.env
 printf 'AUTH_FILE=%s\n' "$auth_file" >> /etc/wynnmarket/container.env
 
 
+# Create the deploy script and run it to start the container
 cat > /usr/local/sbin/wynnmarket-deploy <<'WynnMarketDeploy'
 ${deploy_script}
 WynnMarketDeploy
 chmod 755 /usr/local/sbin/wynnmarket-deploy
 /usr/local/sbin/wynnmarket-deploy "${app_image_tag}"
+
+

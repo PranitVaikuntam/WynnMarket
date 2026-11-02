@@ -60,19 +60,20 @@ terraform -chdir=infrastructure fmt -check -recursive
 terraform -chdir=infrastructure validate
 ```
 
-Always pass `enable_app_instance=true` while the production host should exist; its safe default is false.
+The app host is always provisioned; the `auth_state_migrated` gate still guards its creation.
 
 ## Staged deployment
 
-The app host always uses the unattended startup path. Do not enable the app host until the auth migration succeeds.
+The app host always uses the unattended startup path. It will not be created until
+the auth migration succeeds, because the instance carries a precondition requiring
+`auth_state_migrated=true`. Run the staged flow below on a fresh stack.
 
-1. Create and attach the encrypted volume without replacing the current instance:
+1. Create and attach the encrypted volume. Until `auth_state_migrated=true` is
+   passed, the instance precondition fails and only the volume is planned:
 
    ```bash
-  terraform -chdir=infrastructure plan \
-    -var='enable_app_instance=true'
-  terraform -chdir=infrastructure apply \
-    -var='enable_app_instance=true'
+  terraform -chdir=infrastructure plan
+  terraform -chdir=infrastructure apply -target=aws_ebs_volume.auth
    ```
 
 2. Copy the current container's account file directly to the attached volume. The current source container defaults to `wynnmarket-local`; override `WYNNMARKET_CONTAINER_NAME` if needed.
@@ -101,11 +102,9 @@ The app host always uses the unattended startup path. Do not enable the app host
 
    ```bash
    terraform -chdir=infrastructure plan \
-    -var='enable_app_instance=true' \
     -var='auth_state_migrated=true' \
     -var='app_image_tag=unattended-1'
    terraform -chdir=infrastructure apply \
-    -var='enable_app_instance=true' \
     -var='auth_state_migrated=true' \
     -var='app_image_tag=unattended-1'
    ```
@@ -118,6 +117,42 @@ For later image deployments, do not run Terraform. Push a new versioned image an
     ./scripts/deploy-to-ec2.sh unattended-2
 
 This pulls the image and recreates only the Docker container, preserving the auth volume and container configuration.
+
+## Web application deployment
+
+The same EC2 host runs the public web application as a separate Docker container. Terraform allows inbound HTTP on port 80 and grants the instance role read-only `DescribeTable`, `Scan`, and `Query` access to the listings table. SSH remains closed; deployment uses the existing SSM connection.
+
+First commit and push the `web/`, infrastructure, and web deployment-script changes. Apply the infrastructure while preserving the collector's existing Terraform variables and image tag:
+
+```bash
+terraform -chdir=infrastructure plan \
+  -var='auth_state_migrated=true' \
+  -var='app_image_tag=unattended-4'
+terraform -chdir=infrastructure apply \
+  -var='auth_state_migrated=true' \
+  -var='app_image_tag=unattended-4'
+```
+
+If `TF_VAR_alert_email` or other variables were used for the existing stack, keep supplying them. Then deploy the pushed Git ref:
+
+```bash
+./scripts/deploy-web-to-ec2.sh main
+```
+
+The deploy script connects through SSM, clones the public GitHub repository into `/opt/wynnmarket` (or updates that checkout), builds `web/Dockerfile` on EC2, and recreates only the `wynnmarket-web` container on host port 80. The collector container is not touched. The site URL is available from:
+
+```bash
+terraform -chdir=infrastructure output -raw web_url
+```
+
+To build from an already-cloned checkout while connected through SSM, run:
+
+```bash
+cd /path/to/WynnMarket
+sudo AWS_REGION=us-east-1 \
+  WYNNMARKET_DYNAMODB_TABLE=wynnmarket-trade-market-listings \
+  ./scripts/run-web-on-ec2.sh
+```
 
 ## Operations
 
