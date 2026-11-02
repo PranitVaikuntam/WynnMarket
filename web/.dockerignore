@@ -1,8 +1,0 @@
-node_modules
-dist
-.vinext
-.wrangler
-.env*
-npm-debug.log*
-coverage
-.DS_Store
