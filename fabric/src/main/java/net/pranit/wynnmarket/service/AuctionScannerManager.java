@@ -107,7 +107,6 @@ public enum AuctionScannerManager {
             TrademarketListing[] newListings = result.newListings();
             auctionScanner.printTradeMarketListings("currPage", newListings);
             heartbeat.emit();
-            DynamoDbListingWriter.sendListingsToDynamoDb(newListings);
         } finally {
             scanLock = false;
         }

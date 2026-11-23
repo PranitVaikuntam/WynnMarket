@@ -31,12 +31,6 @@ bin/
 # fabric
 run/
 
-# terraform
-.terraform/
-.terraform.lock.hcl
-*.tfvars
-!*.tfvars.example
-
 # java
 hs_err_*.log
 replay_*.log
@@ -46,9 +40,6 @@ replay_*.log
 # python
 __pycache__/
 *.pyc
-
-# lambda dependencies
-infrastructure/lambdas/*/layer/python/
 
 # secrets
 .env

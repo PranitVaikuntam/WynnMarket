@@ -1,6 +1,6 @@
 # WynnMarket
 
-WynnMarket is an unattended Minecraft 1.21.11/Fabric client that enters Wynncraft's Trade Market, scans new listings, and writes the existing `pk`/`sk` listing format to DynamoDB. The production client runs in HeadlessMC 2.10.0 on an EC2 Docker host with Wynntils 4.2.8 and Wynnventory 2.2.2.
+WynnMarket is an unattended Minecraft 1.21.11/Fabric client that enters Wynncraft's Trade Market and scans new listings. This branch is a local-testing build: it has no cloud dependencies, infrastructure, or deployment scripts. The client runs in HeadlessMC 2.10.0 with Wynntils 4.2.19 and Wynnventory 2.2.5.
 
 ## Runtime behavior
 
@@ -15,13 +15,11 @@ WYNNMARKET_SERVER_ADDRESS=play.wynncraft.com
 WYNNMARKET_STARTUP_TIMEOUT_SECONDS=600
 WYNNMARKET_SCAN_TIMEOUT_SECONDS=600
 WYNNMARKET_HEALTH_MARKER=/tmp/wynnmarket/last-valid-scan
-WYNNMARKET_AWS_REGION=us-east-1
-WYNNMARKET_DYNAMODB_TABLE=wynnmarket-trade-market-listings
 ```
 
 ## Build and test
 
-Requirements are Java 21, Docker, Terraform, AWS CLI, and authenticated AWS access. Build artifacts and credentials are never copied from `.env` into the image.
+Requirements are Java 21 and Docker. Build artifacts and credentials are never copied from `.env` into the image.
 
 ```bash
 cd fabric
@@ -42,148 +40,22 @@ The image requires a nonempty persisted account file mounted at:
 /headlessmc/HeadlessMC/auth/.accounts.json
 ```
 
-## Infrastructure
+## Local testing
 
-Terraform manages DynamoDB, ECR, the EC2 host and instance role, an encrypted 1-GiB auth EBS volume, CloudWatch Logs, alarms, SNS, and EC2 automatic recovery. Container output is retained in `/wynnmarket/container` for 14 days. Alarms notify on both ALARM and recovery for:
-
-- missing valid-scan heartbeats;
-- DynamoDB write failures;
-- EC2 host system-status failures (with EC2 recovery action).
-
-SSM access remains enabled. The instance role can pull its ECR image, write the existing DynamoDB table, write only its log group, and use SSM.
-
-Initialize and validate:
+Build the mod and image, then run it locally with a mounted account file:
 
 ```bash
-terraform -chdir=infrastructure init
-terraform -chdir=infrastructure fmt -check -recursive
-terraform -chdir=infrastructure validate
+./scripts/build-local-image.sh
+./scripts/run-local-container.sh
 ```
 
-The app host is always provisioned; the `auth_state_migrated` gate still guards its creation.
-
-## Staged deployment
-
-The app host always uses the unattended startup path. It will not be created until
-the auth migration succeeds, because the instance carries a precondition requiring
-`auth_state_migrated=true`. Run the staged flow below on a fresh stack.
-
-1. Create and attach the encrypted volume. Until `auth_state_migrated=true` is
-   passed, the instance precondition fails and only the volume is planned:
-
-   ```bash
-  terraform -chdir=infrastructure plan
-  terraform -chdir=infrastructure apply -target=aws_ebs_volume.auth
-   ```
-
-2. Copy the current container's account file directly to the attached volume. The current source container defaults to `wynnmarket-local`; override `WYNNMARKET_CONTAINER_NAME` if needed.
-
-   ```bash
-   ./scripts/migrate-auth-volume.sh
-   ```
-
-   The script never prints the account file. It formats only the exact Terraform-managed auth volume when blank, copies `.accounts.json`, validates JSON, and applies mode `0600`.
-
-3. Configure the email address for SNS alarm notifications:
-
-   ```bash
-   export TF_VAR_alert_email=you@example.com
-   ```
-
-   After applying Terraform, open the SNS subscription confirmation email and choose **Confirm subscription**.
-
-4. Publish a versioned image after the Gradle build:
-
-   ```bash
-   ./scripts/build-and-push-ecr.sh unattended-1
-   ```
-
-5. Review the replacement plan, then enable the app host with the migration gate:
-
-   ```bash
-   terraform -chdir=infrastructure plan \
-    -var='auth_state_migrated=true' \
-    -var='app_image_tag=unattended-1'
-   terraform -chdir=infrastructure apply \
-    -var='auth_state_migrated=true' \
-    -var='app_image_tag=unattended-1'
-   ```
-
-Terraform installs the host-side deployment script at /usr/local/sbin/wynnmarket-deploy during initial provisioning. The independent encrypted EBS volume remains separate and is bind-mounted as the single account file.
-
-For later image deployments, do not run Terraform. Push a new versioned image and run:
-
-    ./scripts/build-and-push-ecr.sh unattended-2
-    ./scripts/deploy-to-ec2.sh unattended-2
-
-This pulls the image and recreates only the Docker container, preserving the auth volume and container configuration.
-
-## Web application deployment
-
-The same EC2 host runs the public web application as a separate Docker container. Terraform allows inbound HTTP on port 80 and grants the instance role read-only `DescribeTable`, `Scan`, and `Query` access to the listings table. SSH remains closed; deployment uses the existing SSM connection.
-
-First commit and push the `web/`, infrastructure, and web deployment-script changes. Apply the infrastructure while preserving the collector's existing Terraform variables and image tag:
-
-```bash
-terraform -chdir=infrastructure plan \
-  -var='auth_state_migrated=true' \
-  -var='app_image_tag=unattended-4'
-terraform -chdir=infrastructure apply \
-  -var='auth_state_migrated=true' \
-  -var='app_image_tag=unattended-4'
-```
-
-If `TF_VAR_alert_email` or other variables were used for the existing stack, keep supplying them. Then deploy the pushed Git ref:
-
-```bash
-./scripts/deploy-web-to-ec2.sh main
-```
-
-The deploy script connects through SSM, clones the public GitHub repository into `/opt/wynnmarket` (or updates that checkout), builds `web/Dockerfile` on EC2, and recreates only the `wynnmarket-web` container on host port 80. The collector container is not touched. The site URL is available from:
-
-```bash
-terraform -chdir=infrastructure output -raw web_url
-```
-
-To build from an already-cloned checkout while connected through SSM, run:
-
-```bash
-cd /path/to/WynnMarket
-sudo AWS_REGION=us-east-1 \
-  WYNNMARKET_DYNAMODB_TABLE=wynnmarket-trade-market-listings \
-  ./scripts/run-web-on-ec2.sh
-```
-
-## Operations
-
-Read recent logs:
-
-```bash
-aws logs tail /wynnmarket/container --region us-east-1 --since 30m
-```
-
-Inspect the host and container through SSM:
-
-```bash
-INSTANCE_ID=$(terraform -chdir=infrastructure output -raw app_instance_id)
-aws ssm send-command --region us-east-1 \
-  --instance-ids "$INSTANCE_ID" \
-  --document-name AWS-RunShellScript \
-  --parameters 'commands=["docker ps -a","docker inspect --format={{json_.State.Health}} wynnmarket"]'
-```
-
-Useful structured markers are `startup_state`, `resource_pack_accept`, `target_clicked`, `scan_heartbeat`, `dynamodb_write_failure`, `reconnect_requested`, `service_healthy`, and `scan_watchdog_expired`.
+`run-local-container.sh` copies `auth/.accounts.json` into `auth-local/` and bind-mounts it into the container so the source account file stays untouched. Override `SERVER_ADDRESS`, `LOCAL_AUTH_FILE`, or `LOCAL_CONTAINER_NAME` via environment variables as needed.
 
 ### Reauthentication
 
-Microsoft refresh tokens normally renew unattended. If the token is revoked or permanently expires, stop the workload, mount the auth volume into a temporary HeadlessMC container, perform the one-time `login` device flow, and write only the resulting `.accounts.json` back to the mounted volume. Never place the file in Git, an image, Terraform variables/state, SSM command output, or CloudWatch Logs. Restart the production container after validation.
+Microsoft refresh tokens normally renew unattended. If the token is revoked or permanently expires, mount the auth file into a temporary HeadlessMC container, perform the one-time `login` device flow, and write only the resulting `.accounts.json` back. Never commit the account file to Git.
 
 ### Recovery tests
 
 - Stop the container and verify `unless-stopped` starts it again.
 - Temporarily prevent new scan markers and verify exit/restart after `WYNNMARKET_SCAN_TIMEOUT_SECONDS`.
-- Confirm the missing-heartbeat alarm sends an outage email and the subsequent heartbeat sends recovery email.
-- Use the EC2 console/CloudWatch alarm test facility to validate notifications; do not intentionally impair the host outside a maintenance window.
-- Query DynamoDB for records with timestamps after the fresh container start before accepting deployment.
-
-Point-in-time recovery remains enabled on the DynamoDB table. EC2 system-status failures trigger automatic recovery; application failures are handled by the container watchdog and Docker restart policy.

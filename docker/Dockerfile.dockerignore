@@ -1,7 +1,6 @@
 .git
 .env
 **/.env
-*.tfvars
 .gradle
 .idea
 fabric/.gradle
@@ -15,4 +14,3 @@ fabric/build/libs/*
 !fabric/build/libs/wynnmarket-1.0.0.jar
 !fabric/build/standaloneMods/
 !fabric/build/standaloneMods/*.jar
-infrastructure/.terraform

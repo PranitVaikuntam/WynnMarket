@@ -59,18 +59,6 @@ dependencies {
 	modImplementation "maven.modrinth:wynntils:v${project.wynntils_version}-fabric"
 	standaloneMods("maven.modrinth:wynntils:v${project.wynntils_version}-fabric") { transitive false }
 
-	//ObjectMapper
-	shadowImplementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2"
-	shadowImplementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2"
-
-	//AWS SDK
-	shadowImplementation platform("software.amazon.awssdk:bom:2.29.52")
-	shadowImplementation("software.amazon.awssdk:dynamodb") {
-		exclude group: "software.amazon.awssdk", module: "apache-client"
-		exclude group: "software.amazon.awssdk", module: "netty-nio-client"
-	}
-	shadowImplementation "software.amazon.awssdk:url-connection-client"
-
 	//Junit Testing
 	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
 	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
